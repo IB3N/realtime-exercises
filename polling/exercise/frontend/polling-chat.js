@@ -15,18 +15,41 @@ chat.addEventListener("submit", function (e) {
 });
 
 async function postNewMsg(user, text) {
-  // post to /poll a new message
-  // write code here
+  const data = { user, text };
+  try {
+    return fetch("/poll", {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function getNewMsgs() {
-  // poll the server
-  // write code here
+  let json;
+  try {
+    const res = await fetch("/poll");
+    json = await res.json();
+
+    if (res.status >= 400) {
+      throw new Error("Request did not succeed: " + res.status);
+    }
+
+    allChat = json.msg;
+    render();
+    failedTries = 0;
+  } catch (error) {
+    failedTries++;
+  }
 }
 
 function render() {
   // as long as allChat is holding all current messages, this will render them
-  // into the ui. yes, it's inefficent. yes, it's fine for this example
+  // into the ui. yes, it's inefficient. yes, it's fine for this example
   const html = allChat.map(({ user, text, time, id }) =>
     template(user, text, time, id)
   );
@@ -37,5 +60,17 @@ function render() {
 const template = (user, msg) =>
   `<li class="collection-item"><span class="badge">${user}</span>${msg}</li>`;
 
-// make the first request
-getNewMsgs();
+const BACKOFF = 5000;
+let timeToMakeNextRequest = 0;
+let failedTries = 0;
+async function rafTimer(time) {
+  if (timeToMakeNextRequest <= time) {
+    await getNewMsgs();
+    timeToMakeNextRequest =
+      performance.now() + INTERVAL + BACKOFF ** failedTries;
+  }
+
+  requestAnimationFrame(rafTimer);
+}
+
+requestAnimationFrame(rafTimer);
