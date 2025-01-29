@@ -32,11 +32,41 @@ async function postNewMsg(user, text) {
 }
 
 async function getNewMsgs() {
-  /*
-   *
-   * code goes here
-   *
-   */
+  let reader;
+  const utf8Decoder = new TextDecoder("utf-8");
+  try {
+    const res = await fetch("/msgs");
+    reader = res.body.getReader();
+  } catch (error) {
+    console.error("Connection error: ", error);
+  }
+  presence.innerText = "🟢";
+
+  let readerResponse;
+  let done;
+  do {
+    try {
+      readerResponse = await reader.read();
+    } catch (err) {
+      console.error("Reader error: ", err);
+      presence.innerText = "🔴";
+      return;
+    }
+    const chunk = utf8Decoder.decode(readerResponse.value, { stream: true });
+    done = readerResponse.done;
+
+    if (chunk) {
+      try {
+        const json = JSON.parse(chunk);
+        allChat = json.msg;
+        render();
+      } catch (e) {
+        console.error("JSON Parse error: ", e);
+      }
+    }
+  } while (!done);
+
+  presence.innerText = "🔴";
 }
 
 function render() {
